@@ -1,10 +1,9 @@
 from django.template import Template, Context
-from django.template.loader import render_to_string
 from django.utils.safestring import mark_safe
 
-from debug_toolbar.panels import DebugPanel
+from debug_toolbar.panels import Panel
 
-import operation_tracker
+from debug_toolbar_mongo import operation_tracker
 
 _NAV_SUBTITLE_TPL = u'''
 {% for o, n, t in operations %}
@@ -16,7 +15,8 @@ _NAV_SUBTITLE_TPL = u'''
 {% endfor %}
 '''
 
-class MongoDebugPanel(DebugPanel):
+
+class MongoDebugPanel(Panel):
     """Panel that shows information about MongoDB operations.
     """
     name = 'MongoDB'
@@ -34,26 +34,28 @@ class MongoDebugPanel(DebugPanel):
         return 'MongoDB'
 
     def nav_subtitle(self):
-        fun = lambda x, y: (x, len(y), '%.2f' % sum(z['time'] for z in y))
+        def create_operation(operation, logs):
+            return (operation, len(logs), '%.2f' % sum(log['time'] for log in logs))
+
         ctx = {'operations': [], 'count': 0, 'time': 0}
 
         if operation_tracker.queries:
-            ctx['operations'].append(fun('read', operation_tracker.queries))
+            ctx['operations'].append(create_operation('read', operation_tracker.queries))
             ctx['count'] += len(operation_tracker.queries)
             ctx['time'] += sum(x['time'] for x in operation_tracker.queries)
 
         if operation_tracker.inserts:
-            ctx['operations'].append(fun('insert', operation_tracker.inserts))
+            ctx['operations'].append(create_operation('insert', operation_tracker.inserts))
             ctx['count'] += len(operation_tracker.inserts)
             ctx['time'] += sum(x['time'] for x in operation_tracker.inserts)
 
         if operation_tracker.updates:
-            ctx['operations'].append(fun('update', operation_tracker.updates))
+            ctx['operations'].append(create_operation('update', operation_tracker.updates))
             ctx['count'] += len(operation_tracker.updates)
             ctx['time'] += sum(x['time'] for x in operation_tracker.updates)
 
         if operation_tracker.removes:
-            ctx['operations'].append(fun('remove', operation_tracker.removes))
+            ctx['operations'].append(create_operation('remove', operation_tracker.removes))
             ctx['count'] += len(operation_tracker.removes)
             ctx['time'] += sum(x['time'] for x in operation_tracker.removes)
 

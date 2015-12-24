@@ -2,7 +2,13 @@ import functools
 import time
 import inspect
 import os
-import SocketServer
+try:
+    # python 2.x
+    import SocketServer
+except ImportError:
+    # python 3.x
+    import socketserver as SocketServer
+
 
 import django
 from django.conf import settings
@@ -28,6 +34,8 @@ updates = []
 removes = []
 
 WANT_STACK_TRACE = getattr(settings, 'DEBUG_TOOLBAR_MONGO_STACKTRACES', True)
+
+
 def _get_stacktrace():
     if WANT_STACK_TRACE:
         try:
@@ -71,8 +79,7 @@ def _insert(collection_self, doc_or_docs, manipulate=True, check_keys=True, **kw
 
 # Wrap Cursor._refresh for getting queries
 @functools.wraps(_original_methods['update'])
-def _update(collection_self, spec, document, upsert=False,
-           maniuplate=False, multi=False, **kwargs):
+def _update(collection_self, spec, document, upsert=False, maniuplate=False, multi=False, **kwargs):
     start_time = time.time()
     result = _original_methods['update'](
         collection_self,
@@ -181,6 +188,7 @@ def _cursor_refresh(cursor_self):
 
     return result
 
+
 def install_tracker():
     if pymongo.collection.Collection.insert != _insert:
         pymongo.collection.Collection.insert = _insert
@@ -190,6 +198,7 @@ def install_tracker():
         pymongo.collection.Collection.remove = _remove
     if pymongo.cursor.Cursor._refresh != _cursor_refresh:
         pymongo.cursor.Cursor._refresh = _cursor_refresh
+
 
 def uninstall_tracker():
     if pymongo.collection.Collection.insert == _insert:
@@ -201,12 +210,14 @@ def uninstall_tracker():
     if pymongo.cursor.Cursor._refresh == _cursor_refresh:
         pymongo.cursor.Cursor._refresh = _original_methods['cursor_refresh']
 
+
 def reset():
     global queries, inserts, updates, removes
     queries = []
     inserts = []
     updates = []
     removes = []
+
 
 def _get_ordering(son):
     """Helper function to extract formatted ordering from dict.
@@ -216,6 +227,7 @@ def _get_ordering(son):
 
     if '$orderby' in son:
         return ', '.join(fmt(f, d) for f, d in son['$orderby'].items())
+
 
 # Taken from Django Debug Toolbar 0.8.6
 def _tidy_stacktrace(stack):
@@ -252,4 +264,3 @@ def _tidy_stacktrace(stack):
             text = (''.join(text)).strip()
         trace.append((path, line_no, func_name, text))
     return trace
-
